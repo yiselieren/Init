@@ -1,0 +1,49 @@
+#!/bin/bash
+
+ctrlc()
+{
+    echo "Killing $stdout_pid $stderr_pid $$"
+    kill $stdout_pid
+    kill $stderr_pid
+    exit $1
+}
+
+stdout_p()
+{
+    n=1
+    while true
+    do
+        echo "$1 $n to stdout"
+        n=`expr $n + 1`
+        sleep $2
+    done
+}
+
+stderr_p()
+{
+    n=1
+    while true
+    do
+        echo "$1 $n to stderr" >&2
+        n=`expr $n + 1`
+        sleep $2
+    done
+}
+
+if [ $# -ne 3 ]; then
+    echo "$0 NAME PAUSE_STDOUT PAUSE_STDERR"
+    exit
+fi
+
+stdout_p "$1" $2 &
+stdout_pid=$!
+stderr_p "$1" $3 &
+stderr_pid=$!
+
+trap ctrlc SIGQUIT SIGINT
+sleep 5
+ctrlc 0
+#while true
+#do
+#    sleep 100
+#done

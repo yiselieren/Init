@@ -1,0 +1,99 @@
+# ---------------------------------
+# The list of applications to start
+# ---------------------------------
+applications = [ "proc1", "proc2", "mem_test", "cpu_test" ]
+
+# -----------------------------------------------
+# General parameters, may be overwritten for each
+# application in the application related table
+# -----------------------------------------------
+
+# Maximal size of individual log file (per application)
+max_log_size = 1048576
+
+# Maximal amount of log files (per application)
+# The oldest log will be removed
+max_logs_amount = 5
+
+# Working directory for applications
+wd = "${HOME}/tmp"
+
+# Maximal attempts to restart the applications
+# If some application fails or exits more than
+# this amount it will not be restarted anymore
+# If it zero (default value) applications will
+# be restarted indefinitely. If -1 application
+# will never restarts
+max_restart = 0
+
+# Delay before initial application starting in milliseconds
+# Default - no delay, applications are started immediately
+start_delay   = 1000
+
+# Delay before restarting application after it fails/exits in milliseconds
+# Default - no delay, applications are restarted immediately
+restart_delay =  3000
+
+# Pre-run script. will be executed (with bash) before each application start
+prerun = ""
+
+# Post-run script. will be executed (with bash) after each application exit
+postrun = ""
+
+# Final post-run script. will be executed (with bash) after application last
+# time exit (if max_restart counter is exceeded)
+final_postrun = ["bash", "-c", "echo 'Need to rebot'"]
+
+# File name for general log. If empty the general log is disabled
+logfile = "Consolidated.log"
+
+# Duplicate general log to stdout (usable for debug)
+#logstdout = true
+
+# Timeout on each slect when we are waiting for slave output (milliseconds)
+select_timeout  = 2000
+
+# Delay between sending SIGINT or SIGKILL and check the status of a child when
+# killing a child (milliseconds)
+check_child_delay = 300
+
+# Backlog parameter for listen() for control connection
+# Relevant only if -p PORT is specified as a command line parameter
+listen_backlog = 10
+
+# General environment. May be ammended in application table
+[env]
+DEBUG = "1"
+
+
+# -------------------
+# Application details
+# -------------------
+
+[proc1]
+wd = "${HOME}"
+# exec may be s atring (command name with space separated parameters)
+# or array (allp parameters, including the executable itslf)
+exec = ["./Test01", "T1", "0.5",  "0.7"]
+logfile = "Test1.log"
+postrun = ["bash", "-c", "if [[ -z ${HOME}/HARA ]]; then echo 'H'; else echo 'A'; fi"]
+    [proc1.env]
+    LD_LIBRARY_PATH = "${LD_LIBRARY_PATH}:/hara"
+    PATH = ":/:"
+
+[proc2]
+exec = "./Test02 T2 1.0 1.2"
+#log_to_stdout = true
+logfile = "Test2.log"
+start_delay = 1000
+restart_delay = 100
+max_restart = 5
+prerun = ["bash", "-c", "if [[ -z ${HOME}/HARA ]]; then echo 'Hara'; else echo 'AllGood'; fi"]
+
+[mem_test]
+exec = "./TestMem 2048"
+logfile = "TestMem.log"
+
+[cpu_test]
+exec = "./TestCpu 4"
+logfile = "TestCpu.log"
