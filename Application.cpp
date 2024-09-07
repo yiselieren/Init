@@ -34,6 +34,7 @@
 #define BACKLOG_DEF       5
 #define CHECK_CHILD_DELAY   100  /* Milliseconds */
 #define SELECT_TIMEOUT_DEF 1000  /* Milliseconds */
+#define STOP_ON_PYTHON_EXC_CNT 5
 
 bool        Application::abort_request = false;
 int         Application::select_timeout  = SELECT_TIMEOUT_DEF;
@@ -49,6 +50,8 @@ std::map<std::string, Application*> Application::all_apps;
 Application::Application(const std::string &n)
     : name(n)
     , log_to_stdout(false)
+    , use_pty(false)
+    , stop_on_python_exception(false)
     , restart_cnt(0)
     , mem(0)
     , curr_cpu_total(0)
@@ -60,6 +63,7 @@ Application::Application(const std::string &n)
     start_delay = START_DELAY_DEF;
     restart_delay = RESTART_DELAY_DEF;
     max_restart = MAX_RESTART_DEF;
+    stop_on_python_exception_cnt = STOP_ON_PYTHON_EXC_CNT;
 }
 #define INDENT 21
 #define PRINT_S(NAME) do {                                  \
@@ -127,7 +131,7 @@ void Application::killapp(pid_t pid, Log& log)
 {
     int status;
     pid_t w;
-    kill(pid, SIGQUIT);
+    kill(pid, SIGTERM);
     std::this_thread::sleep_for(std::chrono::milliseconds(check_child_delay));
     w = waitpid(pid, &status, WUNTRACED | WNOHANG);
     if (w == pid || w < 0) {
@@ -173,6 +177,16 @@ void Application::sample_resources(pid_t pid)
 #endif
 }
 
+bool Application::check_pyton_exception(const std::string& l)
+{
+    const char *python_traceback = "Traceback (most recent call last):";
+    std::vector<std::string> lines = str::split_by(l, "\r\n");
+    for (unsigned i=0; i<lines.size(); i++)
+        if (lines[i].find(python_traceback) != std::string::npos)
+            return true;
+    return false;
+}
+
 void Application::execute_once(const std::string& name, const std::vector<std::string>& cmd_line,
                                Log& log, bool /*collect_statistics*/)
 {
@@ -191,7 +205,10 @@ void Application::execute_once(const std::string& name, const std::vector<std::s
         argv[i] = (char*)cmd_line[i].c_str();
     argv[cmd_line.size()] = NULL;
 
-    exec_process(&pid, &stdin_fd, &stdout_fd, nullptr, argc, argv);
+    if (use_pty)
+        exec_process_pty(&pid, &stdout_fd, wd.c_str(), argc, argv);
+    else
+        exec_process(&pid, &stdin_fd, &stdout_fd, nullptr, wd.c_str(), argc, argv);
     running_pid = pid;
     delete [] argv;
 
@@ -200,6 +217,8 @@ void Application::execute_once(const std::string& name, const std::vector<std::s
 
     gettimeofday(&tv, NULL);
     uint64_t prev_sampl = tv.tv_sec * 1000000UL + tv.tv_usec;
+    int python_exception_cnt = 0;
+    bool kill_request = false;
     while (true) {
         /*
          * Loop thru process's output
@@ -212,6 +231,13 @@ void Application::execute_once(const std::string& name, const std::vector<std::s
             killapp(pid, log);
             break;
         }
+
+        if (kill_request && (python_exception_cnt++ >= stop_on_python_exception_cnt))
+        {
+            log.print("***** Process \"%s\" - kill request\n", name.c_str());
+            killapp(pid, log);
+        }
+
         FD_ZERO(&rds);
         FD_ZERO(&eds);
         FD_SET(stdout_fd, &rds);
@@ -256,6 +282,8 @@ void Application::execute_once(const std::string& name, const std::vector<std::s
                 }
             }
             log.out(app_out);
+            if (stop_on_python_exception && check_pyton_exception(app_out))
+                kill_request = true;
         }
         if (FD_ISSET(stdout_fd, &eds)) {
             log.print("***** Process \"%s\" - read FDS exception\n", name.c_str());

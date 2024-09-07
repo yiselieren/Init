@@ -1,7 +1,7 @@
 # ---------------------------------
 # The list of applications to start
 # ---------------------------------
-applications = [ "proc1", "proc2", "mem_test", "cpu_test" ]
+applications = [ "proc1", "proc2", "mem_test", "cpu_test" "py_err1" ]
 
 # -----------------------------------------------
 # General parameters, may be overwritten for each
@@ -48,7 +48,22 @@ final_postrun = ["bash", "-c", "echo 'Need to rebot'"]
 logfile = "Consolidated.log"
 
 # Duplicate general log to stdout (usable for debug)
-#logstdout = true
+#log_to_stdout = true
+
+# Use pty for slave process. usable when slave process uses
+# its own buffering and we want to process to behave as if
+# it called from tty
+#use_pty = true
+
+# If slaved process if python script and python exception traceback is detected in its
+# output the init tool will terminate the process after a specified delay
+#
+# Note that this implies use_pty=true
+#stop_on_python_exception = true
+
+# If stop_on_python_exception is specified we are waiting this amount * select_timeout
+# before terminate slave process
+#stop_on_python_exception_cnt = 5
 
 # Timeout on each slect when we are waiting for slave output (milliseconds)
 select_timeout  = 2000
@@ -69,6 +84,16 @@ DEBUG = "1"
 # -------------------
 # Application details
 # -------------------
+
+[py_err1]
+wd="$(pwd)"
+stop_on_python_exception = true
+exec = "./TestPyErr.py"
+logfile = "TestPyErr.log"
+log_to_stdout = true
+stop_on_python_exception_cnt = 3
+max_restart = 3
+restart_delay =  500
 
 [proc1]
 wd = "${HOME}"

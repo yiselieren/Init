@@ -29,7 +29,7 @@ else
 CFLAGS = -g  -W -Werror -DDEBUG
 CPPFLAGS = -std=gnu++11 -g  -W -Werror -DDEBUG
 endif
-LIBS    = -lpthread
+LIBS    = -lpthread -lutil
 LFLAGS  =
 CC      = gcc
 CLINK   = gcc

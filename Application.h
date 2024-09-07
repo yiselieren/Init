@@ -29,6 +29,7 @@ public:
     void execute_once(const std::string& name, const std::vector<std::string>& cmd_line,
                       Log& log, bool collect_statistics = false);
     void sample_resources(pid_t pid);
+    bool check_pyton_exception(const std::string& l);
 
     static bool abort_request;     // When true - each thread will abort its process and exit
     static int  select_timeout;    // (milliseconds) We will timeout if read takes more than this
@@ -58,6 +59,9 @@ public:
     std::vector<std::string>           final_postrun;    // Final post-run comamnd
     std::string                        logfile;          // Log file name
     bool                               log_to_stdout;    // Duplicate log to stdout
+    bool                               use_pty;          // Use pty (forkpty intead of fork) for slave process
+    bool                               stop_on_python_exception;  // Stop when python exception is detected
+    int                                stop_on_python_exception_cnt; // Witing counter
 
     // Running data
     int                                restart_cnt;      // How many times app is restarted

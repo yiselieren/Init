@@ -50,7 +50,7 @@ static void usage(const char *s)
 #define GET_STATIC_S(WHERE, NAME, STATIC_NAME) do {                                     \
         auto vit = WHERE.find(NAME);                                                    \
         if (vit != WHERE.end())                                                         \
-            Application::STATIC_NAME = str::replace_env(vit->second.as<std::string>()); \
+            Application::STATIC_NAME = str::replace_all(vit->second.as<std::string>()); \
     } while(0)
 #define GET_OPTIONAL(TYPE, WHERE, TO, NAME) do { \
         auto vit = WHERE.find(#NAME);            \
@@ -60,7 +60,7 @@ static void usage(const char *s)
 #define GET_OPTIONAL_S(WHERE, TO, NAME) do {                            \
         auto vit = WHERE.find(#NAME);                                   \
         if (vit != WHERE.end())                                         \
-            (TO).NAME = str::replace_env(vit->second.as<std::string>());  \
+            (TO).NAME = str::replace_all(vit->second.as<std::string>());  \
     } while(0)
 #define GET_MANDATORY(TYPE, WHERE, TO, NAME, T) do {              \
         auto vit = WHERE.find(#NAME);                             \
@@ -72,7 +72,7 @@ static void usage(const char *s)
         auto vit = WHERE.find(#NAME);                                  \
         if (vit == WHERE.end())                                        \
             PERR("app:\"%s\" - \"%s\" is mandatory\n", T, #NAME);      \
-        (TO).NAME = str::replace_env(vit->second.as<std::string>());     \
+        (TO).NAME = str::replace_all(vit->second.as<std::string>());     \
     } while(0)
 #define GET_OPTIONAL_VECTOR(WHERE, TO, NAME, ELEMENT_TYPE, APP_TABLE_NAME) do {   \
     auto it = WHERE.find(#NAME);                                                  \
@@ -82,7 +82,7 @@ static void usage(const char *s)
             PERR("app:\"%s\", %s may be an array only\n", APP_TABLE_NAME, #NAME); \
         std::vector<toml::Value> par = p.as<toml::Array>();                       \
         for (size_t i = 0; i < par.size(); i++)                                   \
-            (TO).NAME.push_back(str::replace_env(par[i].as<ELEMENT_TYPE>()));       \
+            (TO).NAME.push_back(str::replace_all(par[i].as<ELEMENT_TYPE>()));       \
         }                                                                         \
     } while(0)
 #define GET_OPTIONAL_VECTOR_S(WHERE, TO, NAME, APP_TABLE_NAME) do {               \
@@ -93,7 +93,7 @@ static void usage(const char *s)
             PERR("app:\"%s\", %s may be an array only\n", APP_TABLE_NAME, #NAME); \
         std::vector<toml::Value> par = p.as<toml::Array>();                       \
         for (size_t i = 0; i < par.size(); i++)                                   \
-            (TO).NAME.push_back(str::replace_env(par[i].as<std::string>()));      \
+            (TO).NAME.push_back(str::replace_all(par[i].as<std::string>()));      \
         }                                                                         \
     } while(0)
 
@@ -116,7 +116,7 @@ static void usage(const char *s)
             PERR("app:\"%s\", %s may be an table only\n", APP_TABLE_NAME, #NAME);         \
         std::map<std::string, toml::Value> par = p.as<toml::Table>();                     \
         for (auto it = par.cbegin(); it != par.cend(); ++it)                              \
-            (TO).NAME[it->first] = str::replace_env(it->second.as<std::string>());        \
+            (TO).NAME[it->first] = str::replace_all(it->second.as<std::string>());        \
         }                                                                                 \
     } while(0)
 #define GET_OPTIONAL_S_OR_ARRAY(WHERE, TO, NAME, TBL_NAME) do {                                   \
@@ -128,7 +128,7 @@ static void usage(const char *s)
         } else if (vit->second.type() == toml::Value::ARRAY_TYPE) {                               \
             std::vector<toml::Value> par = vit->second.as<toml::Array>();                         \
             for (size_t i = 0; i < par.size(); i++) {                                             \
-                (TO).NAME.push_back(str::replace_env(par[i].as<std::string>()));                  \
+                (TO).NAME.push_back(str::replace_all(par[i].as<std::string>()));                  \
             }                                                                                     \
         } else                                                                                    \
             PERR("app:\"%s\" - \"%s\" parameter may be string or array only\n", TBL_NAME, #NAME); \
@@ -142,7 +142,7 @@ static void usage(const char *s)
         } else if (vit->second.type() == toml::Value::ARRAY_TYPE) {                               \
             std::vector<toml::Value> par = vit->second.as<toml::Array>();                         \
             for (size_t i = 0; i < par.size(); i++) {                                             \
-                (TO).NAME.push_back(str::replace_env(par[i].as<std::string>()));                  \
+                (TO).NAME.push_back(str::replace_all(par[i].as<std::string>()));                  \
             }                                                                                     \
         } else                                                                                    \
             PERR("app:\"%s\" - \"%s\" parameter may be string or array only\n", TBL_NAME, #NAME); \
@@ -228,12 +228,18 @@ int read_config(const char *config_name)
         GET_OPTIONAL(int,  v, *app, restart_delay);
         GET_OPTIONAL(int,  v, *app, max_log_size);
         GET_OPTIONAL(bool, v, *app, log_to_stdout);
+        GET_OPTIONAL(bool, v, *app, use_pty);
+        GET_OPTIONAL(bool, v, *app, stop_on_python_exception);
+        GET_OPTIONAL(int,  v, *app, stop_on_python_exception_cnt);
         GET_OPTIONAL_S(v, *app, wd);
         GET_OPTIONAL_S(v, *app, logfile);
         GET_MANDATORY_S_OR_ARRAY(v, *app, exec, table_name.c_str());
         GET_OPTIONAL_S_OR_ARRAY(v, *app, prerun, table_name.c_str());
         GET_OPTIONAL_S_OR_ARRAY(v, *app, postrun, table_name.c_str());
         GET_OPTIONAL_S_OR_ARRAY(v, *app, final_postrun, table_name.c_str());
+
+        if (app->stop_on_python_exception)
+            app->use_pty = true;
 
         Application::all_apps[table_name] = app;
     }

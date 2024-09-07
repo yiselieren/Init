@@ -15,6 +15,12 @@ namespace str {
 // Replace environment variables in the ${VAR} form
 std::string replace_env(const std::string& s);
 
+// Replace all $(CMD) strings with a result of the CMD command execution
+std::string replace_cmd(const std::string& s);
+
+// Replace all above
+std::string replace_all(const std::string& s);
+
 // split/join
 std::vector<std::string> split_by(const std::string& s, const char *delimiters, bool allow_empty = false);
 std::string join(std::vector<std::string> l, const char *sep);

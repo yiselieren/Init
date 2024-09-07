@@ -33,6 +33,46 @@ std::string replace_env(const std::string& s)
     return res;
 } // replace_env
 
+std::string replace_cmd(const std::string& s)
+{
+    std::string res = s;
+
+    while (true) {
+        std::string::size_type n1 = res.find("$(");
+        if (n1 == std::string::npos)
+            break;
+        std::string::size_type n2 = res.find(")", n1+2);
+        if (n2 == std::string::npos)
+            break;
+        std::string cmd = res.substr(n1+2, n2-n1-2);
+        std::string val;
+        FILE *fp = popen(cmd.c_str(), "r");
+        if (fp)
+        {
+            const int B = 512;
+            char b[B+1];
+            while (fgets(b, B , fp))
+                val += b;
+            val = trimRight(val);
+            pclose(fp);
+        }
+        if (!val.empty())
+            res = res.substr(0, n1) + std::string(val) + res.substr(n2+1);
+        else
+        {
+            printf("Command \"%s\" failed\n", cmd.c_str());
+            res = res.substr(0, n1) + res.substr(n2+1);
+        }
+    }
+
+    return res;
+} // replace_cmd
+
+std::string replace_all(const std::string& s)
+{
+    return replace_env(replace_cmd(s));
+}
+
 std::vector<std::string> split_by(const std::string& s, const char *delimiters, bool allow_empty)
 {
     std::vector<std::string> res;

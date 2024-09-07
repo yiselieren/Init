@@ -89,6 +89,8 @@ void Log::out(const char *o)
     int prefix_len = strlen(tstamp);
 
     std::vector<std::string> output = str::split_by(o, "\r\n");
+    if (output.size() < 1)
+        return;
     if (_log) {
         // Check if rotate is necessary
         fpos_t pos;

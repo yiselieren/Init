@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <pty.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +28,7 @@
  * and stderr of the target command. Caller may read from these fds
  * Set stdin_fd to stdin of the target command. Caller may write to it.
  */
-bool exec_process(pid_t *pid, int *stdin_fd, int *stdout_fd, int *stderr_fd, int /*argc*/, char **argv)
+bool exec_process(pid_t *pid, int *stdin_fd, int *stdout_fd, int *stderr_fd, const char *wd, __attribute__ ((unused)) int argc, char **argv)
 {
     int stdin_pipe[2], stdout_pipe[2], stderr_pipe[2];
 
@@ -91,10 +92,77 @@ bool exec_process(pid_t *pid, int *stdin_fd, int *stdout_fd, int *stderr_fd, int
             closedir (dir);
         }
 
+        if (wd && strlen(wd) > 0)
+        {
+            int rc = chdir(wd);
+            (void)rc;
+        }
+
         execvp(argv[0], argv);
 
         printf("%s: %s\n", argv[0], (errno == ENOENT) ? "Bad command or file name" : strerror(errno));
         _exit(0);
     }
     return false;
-} // runcmd
+} // exec_process
+
+////////////////////////////////////////////////////////////////////////
+/*
+ * Execute the specified command in a fake pty
+ */
+bool exec_process_pty(pid_t *pid, int *master_fd, const char *wd, __attribute__ ((unused)) int argc, char **argv)
+{
+    pid_t rc = forkpty(master_fd, NULL, NULL, NULL);
+    if (rc < 0) {
+        printf("forkpty error: %s\n", strerror(errno));
+        return false;
+    }
+    *pid = rc;
+    if (*pid)
+    {
+        /*
+         * We are parent
+         * -------------
+         */
+        return true;
+    }
+    else
+    {
+        /*
+         * We are child
+         * ------------
+         */
+        signal(SIGINT, SIG_DFL);
+        signal(SIGQUIT, SIG_DFL);
+        signal(SIGCHLD, SIG_DFL);
+
+        // Close only used FDs
+        DIR           *dir;
+        struct dirent *ent;
+        char          childs_dir[32];
+        sprintf(childs_dir,"/proc/%d/fd", getpid());
+
+        if ((dir = opendir (childs_dir)) != NULL)
+        {
+            while ((ent = readdir (dir)) != NULL) {
+                char* end;
+                int fd = strtol(ent->d_name, &end, 32);
+                if (!*end && fd > STDERR_FILENO)
+                    close(fd);
+            }
+            closedir (dir);
+        }
+
+        if (wd && strlen(wd) > 0)
+        {
+            int rc = chdir(wd);
+            (void)rc;
+        }
+
+        execvp(argv[0], argv);
+
+        printf("%s: %s\n", argv[0], (errno == ENOENT) ? "Bad command or file name" : strerror(errno));
+        _exit(0);
+    }
+    return false;
+} // exec_process_pty
